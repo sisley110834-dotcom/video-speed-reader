@@ -18,7 +18,7 @@ The site must include:
 
    - Footer with copyright "© 2026 Video Speed Reader"
 
-2. Authentication using Lovable's built-in Supabase-style auth (use whatever auth backend Lovable provides by default — Lovable Cloud is fine for this v1; we'll swap to a user-owned Supabase project in a later step):
+2. Authentication using Supabase auth (email + password), backed by the project's own Supabase instance:
 
    - Sign Up page with email + password
 
@@ -48,16 +48,6 @@ Design requirements:
 
 Out of scope for this v1: video upload widget, transcript display, payment, custom database tables (do NOT create a `profiles` or `videos` table — only use Supabase's default `auth.users`). Those come in later milestones. Stick to landing page + auth + placeholder dashboard.
 
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/028747ba-e2f5-4176-b6c0-02129d887a05).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
 ## Development
 
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
@@ -77,5 +67,6 @@ This is a plain **Vite + React single-page app** with client-side routing via
 - Routes: `/` (landing), `/signin`, `/signup` (`/sign-in` and `/sign-up` redirect to them), `/app` (requires sign-in).
 - `npm run build` (or `bun run build`) emits a static site to `dist/`.
 - `vercel.json` rewrites every path to `index.html`, so deep links like `/app` load the SPA and resolve client-side.
-- Supabase config comes from `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, inlined at build time.
-  If you set them as Vercel environment variables instead of using `.env`, add them for every environment you deploy.
+- Supabase config comes from `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (the browser-safe
+  `sb_publishable_*` key, formerly called the anon key), read via `import.meta.env` and inlined at build time.
+  Set both in `.env` locally and in Vercel → Project Settings → Environment Variables for every environment.

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Link, Outlet, ScrollRestoration, useRouteError } from "react-router";
 
-import { reportLovableError } from "@/lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 
 export function RootLayout() {
@@ -50,7 +49,6 @@ export function RootErrorBoundary() {
   const error = useRouteError();
   useEffect(() => {
     console.error(error);
-    reportLovableError(error, { boundary: "root_error_boundary" });
   }, [error]);
 
   return (
