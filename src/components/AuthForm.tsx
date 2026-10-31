@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 
@@ -21,7 +21,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     setBusy(false);
     if (error) return setError(error.message);
     if (!data.session) return setError("Check your email to confirm your account.");
-    navigate({ to: "/app" });
+    navigate("/app");
   }
 
   const input = "w-full rounded-md border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring";

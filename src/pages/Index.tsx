@@ -1,21 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router";
 import { AudioLines, Timer, BadgeCheck } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/Reveal";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Video Speed Reader — Transcripts in three minutes" },
-      { name: "description", content: "Upload your video, get a clean, accurate transcript in three minutes. Chinese and English, commercial-use ready." },
-      { property: "og:title", content: "Video Speed Reader — Transcripts in three minutes" },
-      { property: "og:description", content: "Upload your video, get a clean transcript in three minutes." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: Index,
-});
 
 const features = [
   { icon: AudioLines, title: "高準確度逐字稿", en: "High-accuracy transcripts", body: "Powered by OpenAI Whisper. Supports Chinese and English." },
@@ -23,7 +11,12 @@ const features = [
   { icon: BadgeCheck, title: "可商用授權", en: "Commercial-use ready", body: "You own the output. Use it however you like." },
 ];
 
-function Index() {
+export default function Index() {
+  usePageMeta({
+    title: "Video Speed Reader — Transcripts in three minutes",
+    description:
+      "Upload your video, get a clean, accurate transcript in three minutes. Chinese and English, commercial-use ready.",
+  });
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-navy text-navy-foreground">
