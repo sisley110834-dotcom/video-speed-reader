@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Roboto Slab", Georgia, serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -33,33 +33,36 @@
   --color-navy: var(--navy);
   --color-navy-foreground: var(--navy-foreground);
   --color-navy-muted: var(--navy-muted);
+  --color-title: var(--title);
 }
 
 :root {
   --radius: 0.5rem;
-  --background: oklch(0.95 0.025 80);       /* beige */
-  --foreground: oklch(0.24 0.06 260);       /* deep navy text */
-  --card: oklch(0.975 0.015 80);
-  --card-foreground: oklch(0.24 0.06 260);
-  --popover: oklch(0.975 0.015 80);
-  --popover-foreground: oklch(0.24 0.06 260);
-  --primary: oklch(0.52 0.1 50);            /* brown accent */
-  --primary-foreground: oklch(0.97 0.015 80);
-  --secondary: oklch(0.9 0.03 78);
-  --secondary-foreground: oklch(0.24 0.06 260);
-  --muted: oklch(0.91 0.025 78);
-  --muted-foreground: oklch(0.45 0.04 255);
-  --accent: oklch(0.88 0.04 70);
-  --accent-foreground: oklch(0.3 0.07 50);
-  --destructive: oklch(0.55 0.2 27);
+  /* Palette drawn from the misty meadow painting */
+  --background: oklch(0.955 0.018 90);      /* hazy cream sky */
+  --foreground: oklch(0.3 0.035 125);       /* deep olive text */
+  --card: oklch(0.975 0.012 90);
+  --card-foreground: oklch(0.3 0.035 125);
+  --popover: oklch(0.975 0.012 90);
+  --popover-foreground: oklch(0.3 0.035 125);
+  --primary: oklch(0.46 0.06 128);          /* moss-green tree line */
+  --primary-foreground: oklch(0.97 0.015 90);
+  --secondary: oklch(0.9 0.03 88);
+  --secondary-foreground: oklch(0.3 0.035 125);
+  --muted: oklch(0.92 0.022 88);
+  --muted-foreground: oklch(0.47 0.03 110);
+  --accent: oklch(0.86 0.06 82);            /* golden grass */
+  --accent-foreground: oklch(0.48 0.09 55); /* russet earth */
+  --destructive: oklch(0.52 0.16 30);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.84 0.03 75);
-  --input: oklch(0.84 0.03 75);
-  --ring: oklch(0.52 0.1 50);
-  --navy: oklch(0.24 0.06 260);
-  --navy-foreground: oklch(0.95 0.025 80);
-  --navy-muted: oklch(0.75 0.03 250);
-  --shadow-card: 0 20px 40px -24px color-mix(in oklab, var(--navy) 45%, transparent);
+  --border: oklch(0.86 0.03 88);
+  --input: oklch(0.84 0.03 88);
+  --ring: oklch(0.6 0.09 80);
+  --navy: oklch(0.32 0.04 130);             /* shaded forest */
+  --navy-foreground: oklch(0.96 0.018 90);
+  --navy-muted: oklch(0.82 0.03 95);
+  --title: oklch(0.5 0.12 45);              /* burnt sienna */
+  --shadow-card: 0 20px 40px -24px color-mix(in oklab, var(--navy) 40%, transparent);
 }
 
 @layer base {
@@ -68,6 +71,10 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    background-image:
+      radial-gradient(120% 60% at 50% 0%, oklch(0.985 0.012 90) 0%, transparent 70%),
+      linear-gradient(to bottom, transparent 60%, oklch(0.93 0.03 85));
+    background-attachment: fixed;
   }
   h1, h2, h3 { font-family: var(--font-display); }
 }
@@ -79,4 +86,13 @@
   transform: translateY(16px);
   transition: opacity 0.7s ease, transform 0.7s ease;
   &.is-visible { opacity: 1; transform: none; }
+}
+
+@utility bg-meadow {
+  background-image:
+    linear-gradient(to bottom, color-mix(in oklab, var(--background) 55%, transparent) 0%, transparent 35%, transparent 70%, var(--background) 100%),
+    linear-gradient(to right, color-mix(in oklab, var(--background) 88%, transparent) 0%, color-mix(in oklab, var(--background) 55%, transparent) 45%, transparent 75%),
+    url("/meadow.webp");
+  background-size: cover;
+  background-position: center 42%;
 }

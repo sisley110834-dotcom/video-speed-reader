@@ -26,11 +26,11 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   const input = "w-full rounded-md border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring";
   return (
-    <div className="flex min-h-screen items-center justify-center px-5">
+    <div className="bg-meadow flex min-h-screen items-center justify-center px-5">
       <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="mb-8 flex justify-center"><Logo /></div>
-        <form onSubmit={onSubmit} className="space-y-4 rounded-xl border bg-card p-7 shadow-card">
-          <h1 className="text-2xl font-bold">{isSignup ? "Create account / 註冊" : "Sign in / 登入"}</h1>
+        <form onSubmit={onSubmit} className="space-y-4 rounded-xl border bg-card/90 p-7 shadow-card backdrop-blur-sm">
+          <h1 className="text-3xl font-bold">{isSignup ? "Create account / 註冊" : "Sign in / 登入"}</h1>
           <label className="block text-sm font-medium">Email
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={`mt-1 ${input}`} />
           </label>
