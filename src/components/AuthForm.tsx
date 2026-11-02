@@ -1,10 +1,13 @@
+"use client";
+
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
-import { supabase } from "@/integrations/supabase/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
 export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,13 +18,15 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     e.preventDefault();
     setError(null);
     setBusy(true);
+    const supabase = createClient();
     const { data, error } = isSignup
       ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
       : await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) return setError(error.message);
     if (!data.session) return setError("Check your email to confirm your account.");
-    navigate("/app");
+    router.push("/app");
+    router.refresh();
   }
 
   const input = "w-full rounded-md border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-ring";
@@ -43,7 +48,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
           </button>
           <p className="text-center text-sm text-muted-foreground">
             {isSignup ? "Already have an account? " : "New here? "}
-            <Link to={isSignup ? "/signin" : "/signup"} className="font-semibold text-primary underline-offset-4 hover:underline">
+            <Link href={isSignup ? "/signin" : "/signup"} className="font-semibold text-primary underline-offset-4 hover:underline">
               {isSignup ? "Sign in" : "Create an account"}
             </Link>
           </p>
