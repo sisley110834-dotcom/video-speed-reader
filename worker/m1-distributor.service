@@ -18,7 +18,7 @@ StandardError=append:/var/log/m1-distributor.log
 Environment=PATH=/home/ubuntu/app/worker/venv/bin:/usr/local/bin:/usr/bin:/bin
 # AWS region for boto3 (Secrets Manager client) — must be the region the EC2 runs in.
 # Resolve with: aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].Placement.AvailabilityZone' --output text | sed 's/[a-z]$//'
-Environment=AWS_DEFAULT_REGION=us-west-2
+Environment=AWS_DEFAULT_REGION=us-east-1
 
 [Install]
 WantedBy=multi-user.target
