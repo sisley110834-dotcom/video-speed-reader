@@ -1,9 +1,19 @@
-import { Link } from "react-router";
+import type { Metadata } from "next";
+import Link from "next/link";
 import { AudioLines, Timer, BadgeCheck } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/Reveal";
-import { usePageMeta } from "@/hooks/use-page-meta";
 
+export const metadata: Metadata = {
+  title: "Video Speed Reader — Transcripts in three minutes",
+  description:
+    "Upload your video, get a clean, accurate transcript in three minutes. Chinese and English, commercial-use ready.",
+  openGraph: {
+    title: "Video Speed Reader — Transcripts in three minutes",
+    description:
+      "Upload your video, get a clean, accurate transcript in three minutes. Chinese and English, commercial-use ready.",
+  },
+};
 
 const features = [
   { icon: AudioLines, title: "高準確度逐字稿", en: "High-accuracy transcripts", body: "Powered by OpenAI Whisper. Supports Chinese and English." },
@@ -12,18 +22,13 @@ const features = [
 ];
 
 export default function Index() {
-  usePageMeta({
-    title: "Video Speed Reader — Transcripts in three minutes",
-    description:
-      "Upload your video, get a clean, accurate transcript in three minutes. Chinese and English, commercial-use ready.",
-  });
   return (
     <div className="min-h-screen flex flex-col">
       <div className="bg-meadow">
         <header>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
             <Logo />
-            <Link to="/signin" className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-card transition hover:opacity-90">
+            <Link href="/signin" className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-card transition hover:opacity-90">
               Sign in / 登入
             </Link>
           </div>
@@ -37,7 +42,7 @@ export default function Index() {
               <p className="mt-6 text-2xl font-semibold md:text-3xl">上傳影片，三分鐘內拿到逐字稿。</p>
               <p className="mt-3 max-w-xl text-lg text-muted-foreground">Upload your video, get a clean transcript in three minutes.</p>
               <div className="mt-10">
-                <Link to="/signup" className="inline-block rounded-md bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-card transition hover:-translate-y-0.5 hover:opacity-90">
+                <Link href="/signup" className="inline-block rounded-md bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-card transition hover:-translate-y-0.5 hover:opacity-90">
                   Get started free
                 </Link>
               </div>

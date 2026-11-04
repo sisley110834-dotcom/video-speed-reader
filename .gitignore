@@ -22,3 +22,13 @@ dist
 *.njsproj
 *.sln
 *.sw?
+
+# Next.js
+.next
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+
+# Python worker
+worker/venv/
+__pycache__/
