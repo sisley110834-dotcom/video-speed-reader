@@ -24,6 +24,21 @@ function truncate(s: string, n: number) {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
+function SummaryCell({ status, summary }: { status: string; summary: string | null }) {
+  if (status !== "done") return <span className="text-muted-foreground">—</span>;
+  if (!summary) return <span className="text-muted-foreground">Not available</span>;
+  return (
+    <details className="group">
+      <summary className="cursor-pointer list-none text-sm">
+        <span className="group-open:hidden">{truncate(summary.replace(/\s+/g, " "), 90)} </span>
+        <span className="font-semibold text-primary underline-offset-4 hover:underline group-open:hidden">More</span>
+        <span className="hidden font-semibold text-primary underline-offset-4 hover:underline group-open:inline">Less</span>
+      </summary>
+      <p className="mt-1 whitespace-pre-line text-sm">{summary}</p>
+    </details>
+  );
+}
+
 export default async function UploadPage() {
   const supabase = await createClient();
   const {
@@ -34,7 +49,7 @@ export default async function UploadPage() {
   // RLS ("users read own jobs") already limits rows to this user; the filter is explicit anyway.
   const { data: jobs, error } = await supabase
     .from("jobs")
-    .select("id, created_at, video_source_url, status")
+    .select("id, created_at, video_source_url, status, session:job_sessions!fk_current_session(summary)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -69,6 +84,7 @@ export default async function UploadPage() {
                     <th className="px-4 py-3 font-medium">URL</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Transcript</th>
+                    <th className="px-4 py-3 font-medium">Summary</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -98,6 +114,9 @@ export default async function UploadPage() {
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
+                      </td>
+                      <td className="min-w-64 max-w-sm px-4 py-3">
+                        <SummaryCell status={job.status} summary={job.session?.summary ?? null} />
                       </td>
                     </tr>
                   ))}

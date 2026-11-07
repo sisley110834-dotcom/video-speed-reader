@@ -1,6 +1,7 @@
 """
 M1 worker: processes one job, downloads the video, runs Whisper,
-writes TXT back to job_sessions.subtitle_txt_content.
+writes TXT back to job_sessions.subtitle_txt_content, then writes a short
+summary of the video to job_sessions.summary.
 
 Started by distributor.py (one Popen per pending job). Reads JOB_ID from env.
 Reads OPENAI_API_KEY / SUPABASE_URL / SUPABASE_SECRET_KEY from AWS Secrets
@@ -127,6 +128,42 @@ def transcribe_chunk(chunk_path: Path, language: str) -> str:
         )
 
 
+SUMMARY_MODEL = "gpt-4o-mini"
+# Keeps the request well inside the model's context window (~3-4 hours of speech).
+SUMMARY_MAX_CHARS = 100_000
+LANGUAGE_NAMES = {"zh": "Chinese", "en": "English", "ja": "Japanese", "ko": "Korean"}
+
+
+def summarize(transcript: str, language: str) -> str:
+    """Summarize the transcript in the job's language."""
+    lang = LANGUAGE_NAMES.get(language, language)
+    resp = openai_client.chat.completions.create(
+        model=SUMMARY_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You summarize video transcripts for a speed-reading app. "
+                    f"Write in {lang}. Give one sentence on what the video is about, "
+                    "then 3-5 short bullet points with the key takeaways. "
+                    "No preamble, under 150 words."
+                ),
+            },
+            {"role": "user", "content": transcript[:SUMMARY_MAX_CHARS]},
+        ],
+    )
+    return resp.choices[0].message.content.strip()
+
+
+def write_summary(job_id: str, session_id: str, transcript: str, language: str) -> None:
+    """A failed summary never fails the job: the transcript is already saved."""
+    try:
+        update_session(session_id, summary=summarize(transcript, language))
+        print(f"[{job_id}] summary written", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[{job_id}] summary failed: {e}", flush=True)
+
+
 def main() -> None:
     job_id = os.environ["JOB_ID"]
     job = get_job(job_id)
@@ -149,6 +186,7 @@ def main() -> None:
         )
 
         update_session(session_id, subtitle_txt_content=full_text)
+        write_summary(job_id, session_id, full_text, job["language"])
         update_job(job_id, status="done")
 
     print(f"[{job_id}] done — {len(full_text)} chars", flush=True)
