@@ -12,7 +12,7 @@ from worker import db, write_summary  # noqa: E402
 
 
 def main() -> None:
-    jobs = db.table("jobs").select("id, language, current_session_id").eq("status", "done").execute().data
+    jobs = db.table("jobs").select("id, current_session_id").eq("status", "done").execute().data
     for job in jobs:
         sid = job["current_session_id"]
         if not sid:
@@ -20,7 +20,7 @@ def main() -> None:
         sess = db.table("job_sessions").select("subtitle_txt_content, summary").eq("id", sid).single().execute().data
         if sess["summary"] or not sess["subtitle_txt_content"]:
             continue
-        write_summary(job["id"], sid, sess["subtitle_txt_content"], job["language"])
+        write_summary(job["id"], sid, sess["subtitle_txt_content"])
 
 
 if __name__ == "__main__":

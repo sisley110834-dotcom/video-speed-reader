@@ -131,12 +131,10 @@ def transcribe_chunk(chunk_path: Path, language: str) -> str:
 SUMMARY_MODEL = "gpt-4o-mini"
 # Keeps the request well inside the model's context window (~3-4 hours of speech).
 SUMMARY_MAX_CHARS = 100_000
-LANGUAGE_NAMES = {"zh": "Chinese", "en": "English", "ja": "Japanese", "ko": "Korean"}
 
 
-def summarize(transcript: str, language: str) -> str:
-    """Summarize the transcript in the job's language."""
-    lang = LANGUAGE_NAMES.get(language, language)
+def summarize(transcript: str) -> str:
+    """Short English summary, whatever language the video is in."""
     resp = openai_client.chat.completions.create(
         model=SUMMARY_MODEL,
         messages=[
@@ -144,9 +142,8 @@ def summarize(transcript: str, language: str) -> str:
                 "role": "system",
                 "content": (
                     "You summarize video transcripts for a speed-reading app. "
-                    f"Write in {lang}. Give one sentence on what the video is about, "
-                    "then 3-5 short bullet points with the key takeaways. "
-                    "No preamble, under 150 words."
+                    "Write in English, in 2-3 plain sentences (under 60 words): "
+                    "what the video is about and its main takeaway. No preamble, no bullets."
                 ),
             },
             {"role": "user", "content": transcript[:SUMMARY_MAX_CHARS]},
@@ -155,10 +152,10 @@ def summarize(transcript: str, language: str) -> str:
     return resp.choices[0].message.content.strip()
 
 
-def write_summary(job_id: str, session_id: str, transcript: str, language: str) -> None:
+def write_summary(job_id: str, session_id: str, transcript: str) -> None:
     """A failed summary never fails the job: the transcript is already saved."""
     try:
-        update_session(session_id, summary=summarize(transcript, language))
+        update_session(session_id, summary=summarize(transcript))
         print(f"[{job_id}] summary written", flush=True)
     except Exception as e:  # noqa: BLE001
         print(f"[{job_id}] summary failed: {e}", flush=True)
@@ -186,7 +183,7 @@ def main() -> None:
         )
 
         update_session(session_id, subtitle_txt_content=full_text)
-        write_summary(job_id, session_id, full_text, job["language"])
+        write_summary(job_id, session_id, full_text)
         update_job(job_id, status="done")
 
     print(f"[{job_id}] done — {len(full_text)} chars", flush=True)
