@@ -3,6 +3,10 @@ M1 worker: processes one job, downloads the video, runs Whisper,
 writes TXT back to job_sessions.subtitle_txt_content, then writes a short
 summary of the video to job_sessions.summary.
 
+M2: 1 credit = 1 started minute of video. Before Whisper, the video's duration is
+compared to profiles.credits_balance; if it's short, the job ends as
+'insufficient_credits' with no Whisper call. Credits are deducted only on 'done'.
+
 Started by distributor.py (one Popen per pending job). Reads JOB_ID from env.
 Reads OPENAI_API_KEY / SUPABASE_URL / SUPABASE_SECRET_KEY from AWS Secrets
 Manager — the EC2's IAM instance profile grants `secretsmanager:GetSecretValue`
@@ -14,6 +18,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import boto3
 from openai import OpenAI
@@ -82,6 +87,56 @@ def to_mp3(video_path: Path, dest_dir: Path) -> Path:
         capture_output=True,
     )
     return mp3
+
+
+def get_balance(user_id: str) -> float:
+    rows = db.table("profiles").select("credits_balance").eq("id", user_id).execute().data
+    return float(rows[0]["credits_balance"]) if rows else 0.0
+
+
+def minutes_from_seconds(seconds: float) -> int:
+    """Round UP to whole minutes, minimum 1 credit (a 61 s clip costs 2)."""
+    return max(1, math.ceil(seconds / 60))
+
+
+def probe_minutes_cheap(url: str) -> Optional[int]:
+    """Duration WITHOUT downloading, via yt-dlp metadata. None when the source doesn't
+    expose it (yt-dlp prints 'NA' for many direct .mp4 URLs); fall back to ffprobe."""
+    try:
+        out = subprocess.run(
+            ["yt-dlp", "--no-playlist", "--no-warnings", "--print", "duration", url],
+            check=True, capture_output=True, text=True, timeout=60,
+        ).stdout.strip()
+        return minutes_from_seconds(float(out))
+    except (subprocess.SubprocessError, ValueError):
+        return None
+
+
+def mark_insufficient(job: dict, minutes: int, balance: float) -> None:
+    update_job(job["id"], status="insufficient_credits")
+    db.table("credit_transactions").insert({
+        "user_id": job["user_id"],
+        "amount": 0,
+        "type": "deduction",
+        "description": f"Insufficient credits: video is {minutes} min, you have {int(balance)}",
+        "job_id": job["id"],
+    }).execute()
+    print(f"[{job['id']}] insufficient credits: {minutes} min > balance {balance}", flush=True)
+
+
+def deduct_credits(job: dict, minutes: int) -> None:
+    """Ledger row first (source of truth), then the derived balance.
+    Read-then-write: fine while the distributor runs one worker per job per user."""
+    db.table("credit_transactions").insert({
+        "user_id": job["user_id"],
+        "amount": -minutes,
+        "type": "deduction",
+        "description": f"Transcribed {minutes} min video",
+        "job_id": job["id"],
+    }).execute()
+    new_balance = max(0.0, get_balance(job["user_id"]) - minutes)
+    db.table("profiles").update({"credits_balance": new_balance}).eq("id", job["user_id"]).execute()
+    print(f"[{job['id']}] deducted {minutes} credit(s), balance now {new_balance}", flush=True)
 
 
 def get_duration_seconds(audio_path: Path) -> float:
@@ -166,13 +221,32 @@ def main() -> None:
     job = get_job(job_id)
     session_id = job["current_session_id"]
 
+    # Claim first (the distributor already did; this is a no-op safety net), so a
+    # crash below leaves the job in 'downloading' instead of being respawned.
     update_job(job_id, status="downloading")
+
+    # Credit check, cheap path: duration from metadata, before downloading anything.
+    balance = get_balance(job["user_id"])
+    minutes = probe_minutes_cheap(job["video_source_url"])
+    print(f"[{job_id}] duration probe: {minutes} min, balance {balance}", flush=True)
+    if minutes is not None and minutes > balance:
+        mark_insufficient(job, minutes, balance)
+        return
+
     print(f"[{job_id}] downloading {job['video_source_url']}", flush=True)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         video = download_video(job["video_source_url"], tmp_path)
         mp3 = to_mp3(video, tmp_path)
+
+        # Precise duration from the file. Use it when the cheap probe had none.
+        if minutes is None:
+            minutes = minutes_from_seconds(get_duration_seconds(mp3))
+            print(f"[{job_id}] ffprobe duration: {minutes} min", flush=True)
+            if minutes > balance:
+                mark_insufficient(job, minutes, balance)
+                return
 
         update_job(job_id, status="transcribe")
         chunks = split_chunks(mp3, tmp_path)
@@ -184,6 +258,7 @@ def main() -> None:
 
         update_session(session_id, subtitle_txt_content=full_text)
         write_summary(job_id, session_id, full_text)
+        deduct_credits(job, minutes)
         update_job(job_id, status="done")
 
     print(f"[{job_id}] done — {len(full_text)} chars", flush=True)

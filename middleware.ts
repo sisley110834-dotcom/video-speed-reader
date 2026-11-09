@@ -26,6 +26,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+// api/stripe/webhook is excluded: Stripe calls it with no session, and it must see the raw body.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|api/stripe/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

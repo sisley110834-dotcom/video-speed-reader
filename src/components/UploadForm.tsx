@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export function UploadForm() {
@@ -9,11 +10,13 @@ export function UploadForm() {
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("zh");
   const [error, setError] = useState<string | null>(null);
+  const [noCredits, setNoCredits] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setNoCredits(false);
     setBusy(true);
     try {
       const res = await fetch("/api/jobs", {
@@ -21,6 +24,10 @@ export function UploadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ video_source_url: url, topic: topic || null, language }),
       });
+      if (res.status === 402) {
+        setNoCredits(true);
+        return;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setError(body.error ?? `Request failed (${res.status})`);
@@ -72,6 +79,14 @@ export function UploadForm() {
         </select>
       </label>
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {noCredits && (
+        <p className="text-sm text-destructive">
+          You don&apos;t have enough credits.{" "}
+          <Link href="/credits" className="font-semibold underline underline-offset-4">
+            Buy credits
+          </Link>
+        </p>
+      )}
       <button disabled={busy} className="w-full rounded-md bg-primary py-2.5 font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60">
         {busy ? "Submitting…" : "Transcribe"}
       </button>

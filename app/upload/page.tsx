@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download } from "lucide-react";
-import { Logo } from "@/components/Logo";
-import { SignOutButton } from "@/components/SignOutButton";
+import { AppHeader } from "@/components/AppHeader";
 import { UploadForm } from "@/components/UploadForm";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +16,7 @@ const statusStyles: Record<string, string> = {
   downloading: "bg-gray-200 text-gray-700",
   transcribe: "bg-blue-100 text-blue-800",
   done: "bg-green-100 text-green-800",
+  insufficient_credits: "bg-red-100 text-red-800",
 };
 
 function truncate(s: string, n: number) {
@@ -56,17 +55,7 @@ export default async function UploadPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-meadow border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <Logo to="/app" />
-          <div className="flex items-center gap-3">
-            <Link href="/app" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
-              Dashboard
-            </Link>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+      <AppHeader current="upload" />
 
       <main className="mx-auto max-w-4xl space-y-10 px-5 py-14">
         <section>
@@ -98,8 +87,13 @@ export default async function UploadPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[job.status] ?? statusStyles.pending}`}>
-                          {job.status}
+                          {job.status === "insufficient_credits" ? "not enough credits" : job.status}
                         </span>
+                        {job.status === "insufficient_credits" && (
+                          <a href="/credits" className="ml-2 text-xs font-semibold text-primary underline-offset-4 hover:underline">
+                            Buy credits
+                          </a>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {job.status === "done" ? (
