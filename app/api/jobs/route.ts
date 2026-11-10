@@ -30,6 +30,20 @@ export async function POST(req: Request) {
   // both rows and link them without extra policies.
   const admin = createAdminClient();
 
+  // 3. Fast pre-check: block the obvious "no credits" case here. The exact
+  //    duration-vs-balance check runs on the worker, once the video length is known.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("credits_balance")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!profile || Number(profile.credits_balance) < 1) {
+    return NextResponse.json(
+      { error: "insufficient credits — please buy more at /credits", code: "insufficient_credits" },
+      { status: 402 },
+    );
+  }
+
   const { data: job, error: jobErr } = await admin
     .from("jobs")
     .insert({ user_id: user.id, video_source_url: url, topic, language, status: "pending" })

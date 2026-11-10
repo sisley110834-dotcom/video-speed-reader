@@ -1,0 +1,114 @@
+-- M2: credits system (profiles.credits_balance, credit ledger, credit products,
+-- 30-credit signup bonus, insufficient_credits job status).
+
+-- 0. profiles (M1 did not create it)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'user',
+  email text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Users can view own profile" ON public.profiles
+    FOR SELECT USING (id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 1. credits_balance on profiles
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS credits_balance numeric NOT NULL DEFAULT 30;
+
+-- Backfill: every existing user gets a profile with the 30-credit bonus.
+INSERT INTO public.profiles (id, email, credits_balance)
+SELECT u.id, u.email, 30 FROM auth.users u
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Ledger
+CREATE TABLE IF NOT EXISTS public.credit_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  amount numeric NOT NULL,
+  type text NOT NULL CHECK (type IN ('purchase', 'deduction', 'signup_bonus', 'admin_grant')),
+  description text,
+  job_id uuid REFERENCES public.jobs(id) ON DELETE SET NULL,
+  stripe_payment_intent_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_transactions_user_id
+  ON public.credit_transactions(user_id, created_at DESC);
+
+-- Idempotency: at most one purchase row per payment_intent
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_credit_tx_payment_intent
+  ON public.credit_transactions(stripe_payment_intent_id)
+  WHERE stripe_payment_intent_id IS NOT NULL;
+
+ALTER TABLE public.credit_transactions ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Users can view own transactions" ON public.credit_transactions
+    FOR SELECT USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 3. Products catalog (price IDs from the "Reggie sandbox" Stripe account)
+CREATE TABLE IF NOT EXISTS public.credit_products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  credits numeric NOT NULL,
+  price_usd numeric NOT NULL,
+  stripe_price_id text UNIQUE,
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.credit_products ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "Authenticated users can view active products" ON public.credit_products
+    FOR SELECT TO authenticated USING (active = true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+INSERT INTO public.credit_products (name, credits, price_usd, stripe_price_id) VALUES
+  ('10 Credits', 10, 10.00, 'price_1UZiefFIlgmQextEuoUwpIgi'),
+  ('45 Credits', 45, 30.00, 'price_1UZiegFIlgmQextEhCr74ljg'),
+  ('90 Credits', 90, 60.00, 'price_1UZiehFIlgmQextEPHXT65qC')
+ON CONFLICT (stripe_price_id) DO NOTHING;
+
+-- 4. Signup trigger: 30-credit welcome bonus
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, role, credits_balance)
+    VALUES (NEW.id, NEW.email, 'user', 30)
+    ON CONFLICT (id) DO NOTHING;
+  INSERT INTO public.credit_transactions (user_id, amount, type, description)
+    VALUES (NEW.id, 30, 'signup_bonus', 'Welcome bonus — 30 free credits');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 5. New job status: insufficient_credits (keeps M1's four statuses)
+ALTER TABLE public.jobs DROP CONSTRAINT IF EXISTS jobs_status_check;
+ALTER TABLE public.jobs ADD CONSTRAINT jobs_status_check
+  CHECK (status IN ('pending', 'downloading', 'transcribe', 'done', 'insufficient_credits'));
+
+-- 6. Backfill signup_bonus ledger rows for users created before this migration
+INSERT INTO public.credit_transactions (user_id, amount, type, description)
+SELECT u.id, 30, 'signup_bonus', 'Welcome bonus — 30 free credits (backfilled)'
+FROM auth.users u
+LEFT JOIN public.credit_transactions ct
+  ON ct.user_id = u.id AND ct.type = 'signup_bonus'
+WHERE ct.id IS NULL;
