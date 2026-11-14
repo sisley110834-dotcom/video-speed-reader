@@ -7,10 +7,11 @@ M2: 1 credit = 1 started minute of video. Before Whisper, the video's duration i
 compared to profiles.credits_balance; if it's short, the job ends as
 'insufficient_credits' with no Whisper call. Credits are deducted only on 'done'.
 
-Started by distributor.py (one Popen per pending job). Reads JOB_ID from env.
-Reads OPENAI_API_KEY / SUPABASE_URL / SUPABASE_SECRET_KEY from AWS Secrets
-Manager — the EC2's IAM instance profile grants `secretsmanager:GetSecretValue`
-on exactly those secret names, so no credentials ever live on disk.
+M1: started by distributor.py (one Popen per pending job) on the EC2.
+M4: started as one ECS Fargate task per job by the Lambda distributor.
+Reads JOB_ID from env. OPENAI_API_KEY / SUPABASE_URL / SUPABASE_SECRET_KEY come
+from env when all three are set (Fargate: ECS injects them from Secrets Manager),
+otherwise straight from AWS Secrets Manager (EC2 instance profile).
 """
 import os
 import math
@@ -30,8 +31,14 @@ def _get_secret(client, name: str) -> str:
     return client.get_secret_value(SecretId=name)["SecretString"]
 
 
+SECRET_ENV_KEYS = ("OPENAI_API_KEY", "SUPABASE_URL", "SUPABASE_SECRET_KEY")
+
+
 def _load_secrets() -> dict[str, str]:
-    """Pull the three M1 secrets from AWS Secrets Manager."""
+    """M4 / Fargate: ECS injects the three secrets as env vars, so use them.
+    M1 / EC2: fall back to AWS Secrets Manager via the instance profile."""
+    if all(os.environ.get(k) for k in SECRET_ENV_KEYS):
+        return {k: os.environ[k] for k in SECRET_ENV_KEYS}
     sm = boto3.client("secretsmanager")
     return {
         "OPENAI_API_KEY": _get_secret(sm, "openai-api-key"),
