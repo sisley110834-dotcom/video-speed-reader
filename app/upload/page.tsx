@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Download } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { UploadForm } from "@/components/UploadForm";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,6 +19,11 @@ const statusStyles: Record<string, string> = {
   done: "bg-green-100 text-green-800",
   insufficient_credits: "bg-red-100 text-red-800",
 };
+
+// Statuses where the worker has finished with the job.
+const FINAL_STATUSES = new Set(["done", "insufficient_credits"]);
+// Stop auto-refreshing for jobs the worker hasn't touched in this long (e.g. a crashed run).
+const STALE_AFTER_MS = 60 * 60 * 1000;
 
 function truncate(s: string, n: number) {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
@@ -48,14 +54,20 @@ export default async function UploadPage() {
   // RLS ("users read own jobs") already limits rows to this user; the filter is explicit anyway.
   const { data: jobs, error } = await supabase
     .from("jobs")
-    .select("id, created_at, video_source_url, status, session:job_sessions!fk_current_session(summary)")
+    .select("id, created_at, updated_at, video_source_url, status, session:job_sessions!fk_current_session(summary)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
+  const now = Date.now();
+  const inProgress = (jobs ?? []).some(
+    (job) => !FINAL_STATUSES.has(job.status) && now - new Date(job.updated_at).getTime() < STALE_AFTER_MS,
+  );
+
   return (
     <div className="min-h-screen">
       <AppHeader current="upload" />
+      <AutoRefresh active={inProgress} />
 
       <main className="mx-auto max-w-4xl space-y-10 px-5 py-14">
         <section>
